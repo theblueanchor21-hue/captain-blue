@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@theme {
+  --color-captain-blue: #0f172a; /* Deep navy */
+  --color-captain-blue-light: #3b82f6; 
+  --color-captain-accent: #0ea5e9;
+  --animate-float: float 4s ease-in-out infinite;
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #f8fafc;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+}
