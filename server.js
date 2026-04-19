@@ -38,8 +38,8 @@ The Property (The Blue Anchor):
 - Fire pit is out back. Parking is gravel. Pavilion available for guests.
 
 Special Handling Logic:
-- **Extra Supplies (Towels, Linens, Coffee):** If a guest asks for these, tell them: "Ahoy! We keep extra towels, linens, and supplies fully stocked in the cabinets in the main house foyer. To keep the house secure, the door stays locked—just reply to your original check-in text right now saying you need supplies, and John will remotely pop the lock open for you instantly!"
-- **Emergencies / Locked Out / Leaks:** If a guest has a real emergency or maintenance issue, tell them: "Let's get this sorted immediately. Please tap to call our main line at 989-279-0720. Tell Grace (our front desk assistant) what is going on, and she will patch you directly through to John's emergency cell phone right away."
+- **Emergencies & Lockouts MUST BE VERIFIED:** If a guest reports a physical emergency, severe maintenance issue, or a lockout, you MUST first ask them: "Oh no! To authorize a remote unlock or emergency alert, could you please verify the exact cell phone number listed on your booking?" Wait for them to provide the phone number. Only AFTER they provide a phone number, tell them: "Thank you. I have silently triggered an emergency alert to management. Please also tap to call our main line at 989-279-0720 to speak with Grace, and she will patch you through to John's emergency cell phone right away."
+- **Extra Supplies (Towels, Linens, Coffee):** If a guest asks for supplies, you MUST also ask for their booking phone number first: "Ahoy! To remotely pop the supply closet lock, could you please verify the cell phone number on your booking?" Once provided, tell them the alert has been sent.
 - **Booking Inquiries:** DO NOT hand off to John; simply direct them to book on our main website!
 
 Local Directory (Tier 1 Knowledge):
@@ -58,8 +58,8 @@ app.post('/api/chat', async (req, res) => {
     // In actual production, we would lookup guestToken in Airtable here
     // and append their preferences to the system prompt.
 
-    // 1. Kick off non-blocking background Intent Analyzer to alert John (Zero Latency!)
-    classifyAndNotifyOwner(message, guestToken).catch(e => console.error("Webhook error:", e));
+    // 1. Kick off non-blocking background Intent Analyzer to extract context and alert John (Zero Latency!)
+    classifyAndNotifyOwner(history, message, guestToken).catch(e => console.error("Webhook error:", e));
 
     // 2. Format history for Gemini
     const contents = history.map(msg => ({
@@ -104,27 +104,54 @@ app.post('/api/chat', async (req, res) => {
 });
 
 // ZERO-LATENCY BACKGROUND WORKER
-// Uses a tiny, fast AI call to determine if John needs an alert via Make.com
-async function classifyAndNotifyOwner(message, guestToken) {
+// Uses a tiny, fast AI call to extract context from the chat history and trigger structured JSON to Make.com
+async function classifyAndNotifyOwner(historyArray, currentMessage, guestToken) {
   if (!process.env.MAKE_WEBHOOK_URL) return;
+  if (!currentMessage || currentMessage.length < 5) return;
+
+  const formattedHistory = historyArray.map(msg => `${msg.role.toUpperCase()}: ${msg.text}`).join('\n');
+
+  const prompt = `You are a silent data-extraction tool analyzing a conversation between a hotel guest and an AI concierge.
+  Review the chat history. Did the guest report a physical emergency, a lockout, or request extra supplies AND explicitly supply a phone number for verification?
+  
+  If NO (or if they haven't provided an identifying phone number yet), reply with exactly the word NO.
+  
+  If YES, extract their details and respond with ONLY a valid JSON object matching this schema:
+  {
+    "is_emergency_or_supply_request": true,
+    "guest_name": "Extracted name or 'Unknown'",
+    "room_number": "Extracted room number or 'Unknown'",
+    "verification_phone_number": "Extracted phone number or 'Unknown'",
+    "issue_description": "Brief summary of what they need"
+  }
+  
+  Chat History:
+  ${formattedHistory}
+  GUEST'S LATEST MESSAGE: ${currentMessage}`;
 
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
-    contents: `Does this guest message represent a request for extra supplies (towels, linens, coffee), or a physical emergency/lockout? 
-    Message: "${message}". 
-    Reply ONLY with the word YES or NO.`
+    contents: prompt
   });
 
-  if (response.text.includes("YES")) {
-    console.log(`🚨 ALERT TRIGGERED: Forwarding exact request to Make.com: "${message}"`);
+  const text = response.text.trim();
+  if (text === "NO" || text.includes('"NO"')) return;
+
+  try {
+    // Strip markdown formatting if Gemini wrapped it in \`\`\`json
+    const cleanJson = text.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+    const payload = JSON.parse(cleanJson);
+    payload.guestToken = guestToken || 'unknown';
+    payload.original_message = currentMessage;
+
+    console.log(`🚨 ALERT TRIGGERED: Sending structured JSON payload to Make.com:`, payload);
     await fetch(process.env.MAKE_WEBHOOK_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        guestToken: guestToken || 'unknown', 
-        message: message 
-      })
+      body: JSON.stringify(payload)
     });
+  } catch (e) {
+    console.error("Failed to parse or send background webhook JSON:", e);
   }
 }
 
