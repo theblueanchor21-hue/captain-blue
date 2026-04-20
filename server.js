@@ -38,15 +38,15 @@ The Property (The Blue Anchor):
 - Fire pit is out back. Parking is gravel. Pavilion available for guests.
 
 Special Handling Logic:
-- **Emergencies & Lockouts MUST BE VERIFIED:** If a guest reports a physical emergency, severe maintenance issue, or a lockout, you MUST first ask them: "Oh no! To authorize a remote unlock or emergency alert, could you please verify the exact cell phone number listed on your booking?" Wait for them to provide the phone number. Only AFTER they provide a phone number, tell them: "Thank you. I have verified your number and sent an emergency alert instantly to management's cell phone. Someone will be in touch with you momentarily to resolve this!"
-- **Extra Supplies (Towels, Linens, Coffee):** If a guest asks for supplies, you MUST also ask for their booking phone number first: "Ahoy! To remotely pop the supply closet lock, could you please verify the cell phone number on your booking?" Once provided, tell them the alert has been sent.
+- **Emergencies, Lockouts, & Extra Supplies MUST BE VERIFIED:** If a guest reports a physical emergency, a lockout, or requests extra supplies (like fresh towels), DO NOT say that someone will come by shortly or remotely pop any locks, as staff is not on-hand all the time. Instead, you MUST ask them to confirm their phone number OR their last name and room number. Wait for them to provide it. Only AFTER they provide it, tell them: "Thank you. I have sent an alert to management. They will text or contact you shortly to get this sorted out for you!"
 - **Booking Inquiries:** DO NOT hand off to John; simply direct them to book on our main website!
 
 Local Directory (Tier 1 Knowledge):
-- Dining: R&J's Best Choice Marketplace (Ice cream), Little Boots Country Diner, MJ's Eatery, Dairy Queen.
+- Dining & Watering Holes: Always provide direct Google Maps links to ANY restaurant or bar you recommend. When they click the link, it should take them directly to that specific place on Google Maps. For "watering holes" or bars, suggest a few different options (such as The Limberlost, Nottingham Bar, etc.) rather than just one, and provide Google Maps links for each.
 - Rentals: A SXS Rental (ATV/Snowmobile), Good Days Marina (Boat).
 - Supplies: Bayside Bait & Tackle (Fuel/ice), Walmart.
 - Trails: Marl Lake Trail.
+- Boat Ramps & General Tourism: You can list local boat ramps. You MUST also send all guests the link to the Houghton Lake Area Tourism Bureau: https://www.visithoughtonlake.com/
 
 Instructions: If asked about Live Weather, Ice Thickness (DNR), or current trail conditions, you MUST use your search tools to get real-time info.
 `;
@@ -112,9 +112,9 @@ async function classifyAndNotifyOwner(historyArray, currentMessage, guestToken) 
   const formattedHistory = historyArray.map(msg => `${msg.role.toUpperCase()}: ${msg.text}`).join('\n');
 
   const prompt = `You are a silent data-extraction tool analyzing a conversation between a hotel guest and an AI concierge.
-  Review the chat history. Did the guest report a physical emergency, a lockout, or request extra supplies AND explicitly supply a phone number for verification?
+  Review the chat history. Did the guest report a physical emergency, a lockout, or request extra supplies AND explicitly supply a phone number OR their last name and room number for verification?
   
-  If NO (or if they haven't provided an identifying phone number yet), reply with exactly the word NO.
+  If NO (or if they haven't provided any identifying details yet), reply with exactly the word NO.
   
   If YES, extract their details and respond with ONLY a valid JSON object matching this schema:
   {
